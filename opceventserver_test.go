@@ -16,6 +16,14 @@ func TestMain(m *testing.M) {
 	defer com.Uninitialize()
 	m.Run()
 }
+
+func TestServers(t *testing.T) {
+	serverInfos, err := GetOPCEventServers(TestHost)
+	assert.NoError(t, err)
+	assert.Greater(t, len(serverInfos), 0)
+	t.Log(serverInfos[0].ProgID)
+}
+
 func TestConnectEventServer(t *testing.T) {
 	eventServer, err := ConnectEventServer(TestProgID, TestHost)
 	if err != nil {

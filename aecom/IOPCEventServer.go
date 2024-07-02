@@ -9,6 +9,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+var IID_CATID_OPCEventServer = windows.GUID{
+	Data1: 0x58E13251,
+	Data2: 0xAC87,
+	Data3: 0x11d1,
+	Data4: [8]byte{0x84, 0xD5, 0x00, 0x60, 0x8C, 0xB8, 0xA7, 0xE9},
+}
+
 // 65168851-5783-11D1-84A0-00608CB8A7E9
 var IID_IOPCEventServer = windows.GUID{
 	Data1: 0x65168851,

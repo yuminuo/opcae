@@ -1,6 +1,8 @@
 package opcae
 
 import (
+	"fmt"
+	"github.com/huskar-t/opcda"
 	"sync/atomic"
 	"unsafe"
 
@@ -237,4 +239,58 @@ func getClsIDFromReg(progID, node string) (*windows.GUID, error) {
 	}
 	clsid, err = windows.GUIDFromString(clsidStr)
 	return &clsid, err
+}
+
+// GetOPCEventServers get OPC Event servers from node
+func GetOPCEventServers(node string) ([]*opcda.ServerInfo, error) {
+	location := com.CLSCTX_LOCAL_SERVER
+	if !com.IsLocal(node) {
+		location = com.CLSCTX_REMOTE_SERVER
+	}
+	iCatInfo, err := com.MakeCOMObjectEx(node, location, &com.CLSID_OpcServerList, &com.IID_IOPCServerList2)
+	if err != nil {
+		return nil, opcda.NewOPCWrapperError("make com object IOPCServerList2", err)
+	}
+	cids := []windows.GUID{aecom.IID_CATID_OPCEventServer}
+	defer iCatInfo.Release()
+	sl := &com.IOPCServerList2{IUnknown: iCatInfo}
+	iEnum, err := sl.EnumClassesOfCategories(cids, nil)
+	if err != nil {
+		return nil, opcda.NewOPCWrapperError("server list EnumClassesOfCategories", err)
+	}
+	defer iEnum.Release()
+	var result []*opcda.ServerInfo
+	for {
+		var classID windows.GUID
+		var actual uint32
+		err = iEnum.Next(1, &classID, &actual)
+		if err != nil {
+			break
+		}
+		server, err := getServer(sl, &classID)
+		if err != nil {
+			return nil, opcda.NewOPCWrapperError("getServer", err)
+		}
+		result = append(result, server)
+	}
+	return result, nil
+}
+
+func getServer(sl *com.IOPCServerList2, classID *windows.GUID) (*opcda.ServerInfo, error) {
+	progID, userType, VerIndProgID, err := sl.GetClassDetails(classID)
+	if err != nil {
+		return nil, fmt.Errorf("FAILED to get prog ID from class ID: %w", err)
+	}
+	defer func() {
+		com.CoTaskMemFree(unsafe.Pointer(progID))
+		com.CoTaskMemFree(unsafe.Pointer(userType))
+		com.CoTaskMemFree(unsafe.Pointer(VerIndProgID))
+	}()
+	clsStr := classID.String()
+	return &opcda.ServerInfo{
+		ProgID:       windows.UTF16PtrToString(progID),
+		ClsStr:       clsStr,
+		ClsID:        classID,
+		VerIndProgID: windows.UTF16PtrToString(VerIndProgID),
+	}, nil
 }
