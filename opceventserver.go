@@ -276,6 +276,40 @@ func GetOPCEventServers(node string) ([]*opcda.ServerInfo, error) {
 	return result, nil
 }
 
+func GetOPCOldEventServers(node string) ([]*opcda.OldServerInfo, error) {
+	location := com.CLSCTX_LOCAL_SERVER
+	if !com.IsLocal(node) {
+		location = com.CLSCTX_REMOTE_SERVER
+	}
+	iCatInfo, err := com.MakeCOMObjectEx(node, location, &com.CLSID_OpcServerList, &com.IID_IOPCServerList)
+	if err != nil {
+		return nil, opcda.NewOPCWrapperError("make com object IOPCServerList", err)
+	}
+	cids := []windows.GUID{aecom.IID_CATID_OPCEventServer}
+	defer iCatInfo.Release()
+	sl := &com.IOPCServerList{IUnknown: iCatInfo}
+	iEnum, err := sl.EnumClassesOfCategories(cids, nil)
+	if err != nil {
+		return nil, opcda.NewOPCWrapperError("server list EnumClassesOfCategories", err)
+	}
+	defer iEnum.Release()
+	var result []*opcda.OldServerInfo
+	for {
+		var classID windows.GUID
+		var actual uint32
+		err = iEnum.Next(1, &classID, &actual)
+		if err != nil {
+			break
+		}
+		server, err := getOldServer(sl, &classID)
+		if err != nil {
+			return nil, opcda.NewOPCWrapperError("getOldServer", err)
+		}
+		result = append(result, server)
+	}
+	return result, nil
+}
+
 func getServer(sl *com.IOPCServerList2, classID *windows.GUID) (*opcda.ServerInfo, error) {
 	progID, userType, VerIndProgID, err := sl.GetClassDetails(classID)
 	if err != nil {
@@ -292,5 +326,22 @@ func getServer(sl *com.IOPCServerList2, classID *windows.GUID) (*opcda.ServerInf
 		ClsStr:       clsStr,
 		ClsID:        classID,
 		VerIndProgID: windows.UTF16PtrToString(VerIndProgID),
+	}, nil
+}
+
+func getOldServer(sl *com.IOPCServerList, classID *windows.GUID) (*opcda.OldServerInfo, error) {
+	progID, userType, err := sl.GetClassDetails(classID)
+	if err != nil {
+		return nil, fmt.Errorf("FAILED to get prog ID from class ID: %w", err)
+	}
+	defer func() {
+		com.CoTaskMemFree(unsafe.Pointer(progID))
+		com.CoTaskMemFree(unsafe.Pointer(userType))
+	}()
+	clsStr := classID.String()
+	return &opcda.OldServerInfo{
+		ProgID: windows.UTF16PtrToString(progID),
+		ClsStr: clsStr,
+		ClsID:  classID,
 	}, nil
 }
