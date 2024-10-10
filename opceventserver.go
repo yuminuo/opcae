@@ -38,12 +38,16 @@ func ConnectEventServer(progID, node string) (eventServer *OPCEventServer, err e
 		clsid = &id
 	} else {
 		// try get clsid from server list
-		clsid, err = getClsIDFromServerList(progID, node, location)
+		clsid, err = getClsIDFromOldServerList(progID, node, location)
 		if err != nil {
-			// try get clsid from windows reg
-			clsid, err = getClsIDFromReg(progID, node)
+			// try get clsid from server list
+			clsid, err = getClsIDFromServerList(progID, node, location)
 			if err != nil {
-				return nil, err
+				// try get clsid from windows reg
+				clsid, err = getClsIDFromReg(progID, node)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -208,6 +212,20 @@ func getClsIDFromServerList(progID, node string, location com.CLSCTX) (*windows.
 	}
 	defer iCatInfo.Release()
 	sl := &com.IOPCServerList2{IUnknown: iCatInfo}
+	clsid, err := sl.CLSIDFromProgID(progID)
+	if err != nil {
+		return nil, err
+	}
+	return clsid, nil
+}
+
+func getClsIDFromOldServerList(progID, node string, location com.CLSCTX) (*windows.GUID, error) {
+	iCatInfo, err := com.MakeCOMObjectEx(node, location, &com.CLSID_OpcServerList, &com.IID_IOPCServerList)
+	if err != nil {
+		return nil, err
+	}
+	defer iCatInfo.Release()
+	sl := &com.IOPCServerList{IUnknown: iCatInfo}
 	clsid, err := sl.CLSIDFromProgID(progID)
 	if err != nil {
 		return nil, err

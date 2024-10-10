@@ -13,3 +13,5 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/huskar-t/opcda => github.com/yuminuo/opcda v0.0.0-20240715064656-eb34d1647baf
