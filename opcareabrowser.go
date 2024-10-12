@@ -24,6 +24,18 @@ func (b *OPCAreaBrowser) MoveUP() error {
 	return b.browser.ChangeBrowsePosition(OPCAE_BROWSE_UP, "")
 }
 
+// MoveTo Move to an absolute position.
+func (b *OPCAreaBrowser) MoveTo(branches []string) error {
+	b.MoveToRoot()
+	for _, branch := range branches {
+		err := b.MoveDown(branch)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *OPCAreaBrowser) MoveDown(area string) error {
 	return b.browser.ChangeBrowsePosition(OPCAE_BROWSE_DOWN, area)
 }
